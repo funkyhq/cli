@@ -28,6 +28,7 @@ const { version } = readJSON(join(dist, "metadata.json"));
 const main = readJSON(join(import.meta.dirname, "cli", "package.json"));
 const shared = {
   version,
+  license: main.license,
   homepage: main.homepage,
   repository: main.repository,
 };
@@ -45,6 +46,7 @@ for (const a of readJSON(join(dist, "artifacts.json"))) {
   const exe = os === "win32" ? "funky.exe" : "funky";
   mkdirSync(join(dir, "bin"), { recursive: true });
   cpSync(join(root, a.path), join(dir, "bin", exe));
+  cpSync(join(root, "LICENSE"), join(dir, "LICENSE"));
   chmodSync(join(dir, "bin", exe), 0o755);
   writeJSON(join(dir, "package.json"), {
     name,
@@ -63,6 +65,7 @@ if (dirs.length === 0) throw new Error("no binaries in dist/artifacts.json");
 const mainDir = join(out, "cli");
 cpSync(join(import.meta.dirname, "cli"), mainDir, { recursive: true });
 cpSync(join(root, "README.md"), join(mainDir, "README.md"));
+cpSync(join(root, "LICENSE"), join(mainDir, "LICENSE"));
 main.version = version;
 main.optionalDependencies = Object.fromEntries(Object.entries(main.optionalDependencies).sort());
 writeJSON(join(mainDir, "package.json"), main);

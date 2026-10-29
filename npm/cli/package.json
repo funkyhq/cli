@@ -2,6 +2,7 @@
   "name": "@funky-dev/cli",
   "version": "0.0.0",
   "description": "Manage Funky agents as code",
+  "license": "MIT",
   "homepage": "https://funky.dev",
   "repository": {
     "type": "git",
