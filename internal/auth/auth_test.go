@@ -301,3 +301,37 @@ func (w *syncWriter) String() string {
 	defer w.mu.Unlock()
 	return w.buf.String()
 }
+
+func TestStoreKeepsConfigDirsApart(t *testing.T) {
+	keyring.MockInit()
+	main, scratch := t.TempDir(), t.TempDir()
+	t.Setenv("FUNKY_CONFIG_DIR", main)
+	Save(&Session{Credential: "fkc_main", Console: "https://api.funky.dev"})
+	t.Setenv("FUNKY_CONFIG_DIR", scratch)
+	scratchSession := &Session{Credential: "fkc_scratch", Console: "https://api.funky.dev"}
+	Save(scratchSession)
+	Delete(scratchSession)
+
+	t.Setenv("FUNKY_CONFIG_DIR", main)
+	got, err := Load()
+	if err != nil || got.Credential != "fkc_main" {
+		t.Fatalf("main login after a scratch login and logout = %+v, %v; want fkc_main untouched", got, err)
+	}
+}
+
+func TestLoadReportsAnUnreadableKeychain(t *testing.T) {
+	keyring.MockInit()
+	t.Setenv("FUNKY_CONFIG_DIR", t.TempDir())
+	Save(&Session{Credential: "fkc_secret", Console: "c"})
+
+	keyring.MockInitWithError(errors.New("keychain is locked"))
+	_, err := Load()
+	if err == nil || errors.Is(err, ErrNotLoggedIn) || !strings.Contains(err.Error(), "locked") {
+		t.Fatalf("Load = %v; want the keychain error, not ErrNotLoggedIn", err)
+	}
+
+	keyring.MockInit() // an empty keychain: the entry is really gone
+	if _, err := Load(); !errors.Is(err, ErrNotLoggedIn) {
+		t.Fatalf("Load with the entry missing = %v; want ErrNotLoggedIn", err)
+	}
+}

@@ -43,8 +43,13 @@ func sessionPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "session.json"), nil
+	return filepath.Abs(filepath.Join(dir, "session.json"))
 }
+
+// keyringAccount names a session's keychain entry: its console and its
+// session file, so logins kept in different config dirs never share (and
+// overwrite) one entry.
+func keyringAccount(console, path string) string { return console + " " + path }
 
 // Save stores the session, its credential in the OS keychain when there is
 // one. It reports whether the credential had to go in the file instead.
@@ -57,7 +62,7 @@ func Save(s *Session) (inFile bool, err error) {
 		return false, err
 	}
 	onDisk := *s
-	if keyring.Set(keyringService, s.Console, s.Credential) == nil {
+	if keyring.Set(keyringService, keyringAccount(s.Console, path), s.Credential) == nil {
 		onDisk.Credential = ""
 	} else {
 		inFile = true
@@ -74,7 +79,9 @@ func Save(s *Session) (inFile bool, err error) {
 	return inFile, os.Rename(tmp, path)
 }
 
-// Load reads the saved session, or ErrNotLoggedIn.
+// Load reads the saved session, or ErrNotLoggedIn. A keychain that can't be
+// read (locked, unreachable) is an error of its own, not "not logged in":
+// treating it as logged out would drop a credential without revoking it.
 func Load() (*Session, error) {
 	path, err := sessionPath()
 	if err != nil {
@@ -92,9 +99,12 @@ func Load() (*Session, error) {
 		return nil, fmt.Errorf("reading %s: %w", path, err)
 	}
 	if s.Credential == "" {
-		secret, err := keyring.Get(keyringService, s.Console)
-		if err != nil {
+		secret, err := keyring.Get(keyringService, keyringAccount(s.Console, path))
+		if errors.Is(err, keyring.ErrNotFound) {
 			return nil, fmt.Errorf("%w (the saved credential is missing from the keychain)", ErrNotLoggedIn)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("reading the login from the OS keychain: %w", err)
 		}
 		s.Credential = secret
 	}
@@ -103,12 +113,12 @@ func Load() (*Session, error) {
 
 // Delete forgets the saved session, wherever its parts are.
 func Delete(s *Session) error {
-	if s != nil {
-		_ = keyring.Delete(keyringService, s.Console)
-	}
 	path, err := sessionPath()
 	if err != nil {
 		return err
+	}
+	if s != nil {
+		_ = keyring.Delete(keyringService, keyringAccount(s.Console, path))
 	}
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err

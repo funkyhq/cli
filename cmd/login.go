@@ -35,13 +35,19 @@ paste the code the page shows.`,
 			DeviceName: device,
 			NoBrowser:  noBrowser,
 			Save: func(s *auth.Session) error {
-				// Replace, don't stack: the previous login is revoked first.
-				if old, err := auth.Load(); err == nil {
+				// Replace, don't stack: the previous login is revoked, but only
+				// once the new one is safely saved — a failed save must leave
+				// the user logged in as before.
+				old, _ := auth.Load()
+				inFile, err := auth.Save(s)
+				if err != nil {
+					return err
+				}
+				credentialInFile = inFile
+				if old != nil {
 					_ = auth.NewConsole(old.Console).Logout(cmd.Context(), old.Credential)
 				}
-				inFile, err := auth.Save(s)
-				credentialInFile = inFile
-				return err
+				return nil
 			},
 			In:  cmd.InOrStdin(),
 			Out: out,
@@ -67,9 +73,13 @@ var logoutCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		out := cmd.OutOrStdout()
 		session, err := auth.Load()
-		if err != nil {
+		if errors.Is(err, auth.ErrNotLoggedIn) {
 			fmt.Fprintln(out, "Not logged in.")
 			return auth.Delete(nil)
+		}
+		if err != nil {
+			// e.g. a locked keychain: keep everything, so a retry can still revoke.
+			return err
 		}
 		// Best effort: an expired or already-revoked login (401) is logged out anyway.
 		err = auth.NewConsole(session.Console).Logout(cmd.Context(), session.Credential)
