@@ -1,0 +1,20 @@
+{
+  "name": "@funky-dev/cli",
+  "version": "0.0.0",
+  "description": "Manage Funky agents as code",
+  "homepage": "https://funky.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/funkyhq/cli.git"
+  },
+  "bin": {
+    "funky": "bin/funky.js"
+  },
+  "files": [
+    "bin"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "optionalDependencies": {}
+}

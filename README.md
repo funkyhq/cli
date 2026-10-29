@@ -5,7 +5,11 @@ file, then `funky apply` creates or updates it — like Terraform, for agent con
 
 ## Install
 
-Download a binary for macOS, Linux or Windows from the
+```bash
+npm install -g @funky-dev/cli    # or, without installing: npx @funky-dev/cli login
+```
+
+Or download a binary for macOS, Linux or Windows from the
 [latest release](https://github.com/funkyhq/cli/releases/latest), or, with Go installed:
 
 ```bash
@@ -83,11 +87,13 @@ services; `FUNKY_CONFIG_DIR` moves where the login is saved.
 ## Releasing
 
 Push a version tag; the release workflow builds every platform with
-[GoReleaser](https://goreleaser.com) and publishes a GitHub release:
+[GoReleaser](https://goreleaser.com), publishes a GitHub release, then publishes
+`@funky-dev/cli` and its per-platform binary packages to npm (`npm/publish.mjs`):
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0
 ```
 
-A tag with a suffix (`v0.2.0-rc.1`) becomes a pre-release. To try the build
-locally: `goreleaser release --snapshot --clean` (output in `dist/`).
+A tag with a suffix (`v0.2.0-rc.1`) becomes a pre-release, on npm's `next` tag. To try the build
+locally: `goreleaser release --snapshot --clean && node npm/publish.mjs --dry-run` (output in
+`dist/`).
