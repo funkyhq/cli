@@ -88,7 +88,8 @@ services; `FUNKY_CONFIG_DIR` moves where the login is saved.
 
 Push a version tag; the release workflow builds every platform with
 [GoReleaser](https://goreleaser.com), publishes a GitHub release, then publishes
-`@funky-dev/cli` and its per-platform binary packages to npm (`npm/publish.mjs`):
+`@funky-dev/cli` to npm (`npm/publish.mjs`; each platform's binary is its own version, like
+`0.1.1-darwin-arm64`, which the main version installs as an optional dependency):
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0
