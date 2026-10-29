@@ -5,11 +5,7 @@ file, then `funky apply` creates or updates it — like Terraform, for agent con
 
 ## Install
 
-```bash
-brew install funkyhq/tap/funky
-```
-
-Or download a binary for macOS, Linux or Windows from the
+Download a binary for macOS, Linux or Windows from the
 [latest release](https://github.com/funkyhq/cli/releases/latest), or, with Go installed:
 
 ```bash
@@ -87,11 +83,11 @@ services; `FUNKY_CONFIG_DIR` moves where the login is saved.
 ## Releasing
 
 Push a version tag; the release workflow builds every platform with
-[GoReleaser](https://goreleaser.com), publishes a GitHub release and updates the Homebrew tap:
+[GoReleaser](https://goreleaser.com) and publishes a GitHub release:
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0
 ```
 
-A tag with a suffix (`v0.2.0-rc.1`) becomes a pre-release and skips the tap. To try the build
+A tag with a suffix (`v0.2.0-rc.1`) becomes a pre-release. To try the build
 locally: `goreleaser release --snapshot --clean` (output in `dist/`).
