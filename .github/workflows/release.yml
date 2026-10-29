@@ -51,6 +51,6 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: node npm/publish.mjs
         env:
-          # Only needed until npm trusted publishing is set up for every
-          # @funky-dev/cli* package; then delete the NPM_TOKEN secret.
+          # Only needed until npm trusted publishing is set up for
+          # @funky-dev/cli; then delete the NPM_TOKEN secret.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

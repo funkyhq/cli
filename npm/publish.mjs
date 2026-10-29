@@ -1,7 +1,15 @@
-// Builds the npm packages from GoReleaser's dist/ and publishes them: one
-// package per platform holding its binary (@funky-dev/cli-darwin-arm64, …),
-// then @funky-dev/cli, which depends on all of them optionally so npm only
-// installs the one matching the machine.
+// Builds the npm packages from GoReleaser's dist/ and publishes them, all
+// as one npm package, the way @openai/codex does:
+//
+//   @funky-dev/cli@1.2.3-darwin-arm64, … one version per platform, holding
+//                                        that platform's binary
+//   @funky-dev/cli@1.2.3                 the shim, which lists them all as
+//                                        optional dependencies under alias
+//                                        names (@funky-dev/cli-darwin-arm64:
+//                                        npm:@funky-dev/cli@1.2.3-darwin-arm64)
+//
+// npm only installs the alias whose os/cpu match the machine, and
+// bin/funky.js runs the binary from it.
 //
 //   node npm/publish.mjs            publish (the release workflow does this)
 //   node npm/publish.mjs --dry-run  build and pack into dist/npm only
@@ -27,75 +35,82 @@ const CPU = { amd64: "x64", arm64: "arm64" };
 const { version } = readJSON(join(dist, "metadata.json"));
 const main = readJSON(join(import.meta.dirname, "cli", "package.json"));
 const shared = {
-  version,
+  name: main.name,
   license: main.license,
   homepage: main.homepage,
   repository: main.repository,
 };
 
+// Every version carries the README and LICENSE, so the npm page reads the
+// same whichever version it shows.
+const addDocs = (dir) => {
+  cpSync(join(root, "README.md"), join(dir, "README.md"));
+  cpSync(join(root, "LICENSE"), join(dir, "LICENSE"));
+};
+
 rmSync(out, { recursive: true, force: true });
-const dirs = [];
+const builds = [];
 
 for (const a of readJSON(join(dist, "artifacts.json"))) {
   if (a.type !== "Binary") continue;
   const os = OS[a.goos];
   const cpu = CPU[a.goarch];
   if (!os || !cpu) throw new Error(`no npm platform for ${a.goos}/${a.goarch}`);
-  const name = `${main.name}-${os}-${cpu}`;
-  const dir = join(out, `cli-${os}-${cpu}`);
+  const platform = `${os}-${cpu}`;
+  const dir = join(out, platform);
   const exe = os === "win32" ? "funky.exe" : "funky";
   mkdirSync(join(dir, "bin"), { recursive: true });
   cpSync(join(root, a.path), join(dir, "bin", exe));
-  cpSync(join(root, "LICENSE"), join(dir, "LICENSE"));
   chmodSync(join(dir, "bin", exe), 0o755);
+  addDocs(dir);
   writeJSON(join(dir, "package.json"), {
-    name,
     ...shared,
-    description: `The ${os}-${cpu} binary for ${main.name}`,
+    version: `${version}-${platform}`,
+    description: `The ${platform} binary for ${main.name}; install ${main.name} instead`,
     os: [os],
     cpu: [cpu],
     files: ["bin"],
   });
-  writeFileSync(join(dir, "README.md"), `The ${os}-${cpu} binary for [${main.name}](https://www.npmjs.com/package/${main.name}). Install that instead.\n`);
-  dirs.push({ name, dir });
-  main.optionalDependencies[name] = version;
+  // A version needs a dist-tag; one per platform keeps them off `latest`.
+  builds.push({ version: `${version}-${platform}`, dir, tag: platform });
+  main.optionalDependencies[`${main.name}-${platform}`] = `npm:${main.name}@${version}-${platform}`;
 }
-if (dirs.length === 0) throw new Error("no binaries in dist/artifacts.json");
+if (builds.length === 0) throw new Error("no binaries in dist/artifacts.json");
 
 const mainDir = join(out, "cli");
 cpSync(join(import.meta.dirname, "cli"), mainDir, { recursive: true });
-cpSync(join(root, "README.md"), join(mainDir, "README.md"));
-cpSync(join(root, "LICENSE"), join(mainDir, "LICENSE"));
+addDocs(mainDir);
 main.version = version;
 main.optionalDependencies = Object.fromEntries(Object.entries(main.optionalDependencies).sort());
 writeJSON(join(mainDir, "package.json"), main);
-// Last, so the binaries it depends on are already published.
-dirs.push({ name: main.name, dir: mainDir });
+// Last, so the versions it depends on are already published. Pre-releases
+// (v0.2.0-rc.1) don't become what `npm i @funky-dev/cli` installs.
+builds.push({ version, dir: mainDir, tag: version.includes("-") ? "next" : "latest" });
 
-const npm = (args, cwd) => execFileSync("npm", args, { cwd, stdio: ["ignore", "pipe", "inherit"], encoding: "utf8" });
+const npm = (args, cwd, stderr = "inherit") =>
+  execFileSync("npm", args, { cwd, stdio: ["ignore", "pipe", stderr], encoding: "utf8" });
 
-// Pre-releases (v0.2.0-rc.1) don't become what `npm i @funky-dev/cli` installs.
-const tag = version.includes("-") ? "next" : "latest";
-
-for (const { name, dir } of dirs) {
+for (const { version, dir, tag } of builds) {
+  const spec = `${main.name}@${version}`;
   if (dryRun) {
     npm(["pack", "--pack-destination", out], dir);
-    console.log(`packed ${name}@${version}`);
+    console.log(`packed ${spec}`);
     continue;
   }
   // A re-run after a partial publish skips what's already out.
-  if (published(name)) {
-    console.log(`${name}@${version} already published`);
+  if (published(spec)) {
+    console.log(`${spec} already published`);
     continue;
   }
   npm(["publish", "--access", "public", "--provenance", "--tag", tag], dir);
-  console.log(`published ${name}@${version}`);
+  console.log(`published ${spec}`);
 }
 
-function published(name) {
+function published(spec) {
   try {
-    return npm(["view", `${name}@${version}`, "version"], root).trim() === version;
+    // stderr ignored: a 404 here just means "not yet".
+    return npm(["view", spec, "version"], root, "ignore").trim() !== "";
   } catch {
-    return false; // E404: never published
+    return false;
   }
 }

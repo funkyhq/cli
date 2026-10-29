@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 "use strict";
 
-// Runs the funky binary from the platform package that npm installed next
-// to this one: @funky-dev/cli lists every platform package as an optional
-// dependency, and npm only installs the one matching this OS and CPU.
+// Runs the funky binary from the platform build npm installed next to this
+// package: @funky-dev/cli lists every platform's build (published as its
+// own version, e.g. 1.2.3-darwin-arm64) as an optional dependency named
+// @funky-dev/cli-<platform>, and npm only installs the one matching this
+// OS and CPU.
 
 const { spawnSync } = require("node:child_process");
 
