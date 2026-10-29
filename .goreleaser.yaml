@@ -1,0 +1,61 @@
+# Release builds: push a vX.Y.Z tag and .github/workflows/release.yml runs
+# `goreleaser release`. Check changes locally with
+# `goreleaser release --snapshot --clean`.
+version: 2
+
+project_name: funky
+
+builds:
+  - main: ./cmd/funky
+    binary: funky
+    env:
+      # Static binaries: the keychain libraries need no cgo on any OS.
+      - CGO_ENABLED=0
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X github.com/funkyhq/cli/cmd.version={{ .Version }}
+
+archives:
+  # No version in the names, so releases/latest/download/<name> always
+  # points at the newest build (for install scripts and docs).
+  - name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  # A tag like v0.2.0-rc.1 is published as a pre-release.
+  prerelease: auto
+
+homebrew_casks:
+  - name: funky
+    binaries: [funky]
+    homepage: https://funky.dev
+    description: Manage Funky agents as code
+    repository:
+      owner: funkyhq
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    # Until the tap and its token exist, release without it.
+    skip_upload: '{{ if isEnvSet "HOMEBREW_TAP_TOKEN" }}auto{{ else }}true{{ end }}'
+    hooks:
+      post:
+        # The binary isn't signed or notarized yet; without this, macOS
+        # refuses to run a cask-installed binary.
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/funky"]
+          end

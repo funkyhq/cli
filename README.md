@@ -3,9 +3,24 @@
 Manage [Funky Cloud](https://platform.funky.dev) agents as code. Describe each agent in a YAML
 file, then `funky apply` creates or updates it — like Terraform, for agent configs.
 
-```bash
-go install github.com/funkyhq/cli@latest   # installs as `cli`; or `go build -o funky .`
+## Install
 
+```bash
+brew install funkyhq/tap/funky
+```
+
+Or download a binary for macOS, Linux or Windows from the
+[latest release](https://github.com/funkyhq/cli/releases/latest), or, with Go installed:
+
+```bash
+go install github.com/funkyhq/cli/cmd/funky@latest
+```
+
+`funky --version` shows the installed version.
+
+## Quick start
+
+```bash
 funky login      # opens your browser: sign in, pick a project, approve this machine
 funky init       # creates agents/
 $EDITOR agents/researcher.yaml
@@ -63,7 +78,20 @@ precedence over a login.
 
 ```bash
 go test ./...
+go run ./cmd/funky --help
 ```
 
 `FUNKY_API_URL`, `FUNKY_CONSOLE_URL` and `FUNKY_PLATFORM_URL` point the CLI at non-production
 services; `FUNKY_CONFIG_DIR` moves where the login is saved.
+
+## Releasing
+
+Push a version tag; the release workflow builds every platform with
+[GoReleaser](https://goreleaser.com), publishes a GitHub release and updates the Homebrew tap:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+A tag with a suffix (`v0.2.0-rc.1`) becomes a pre-release and skips the tap. To try the build
+locally: `goreleaser release --snapshot --clean` (output in `dist/`).
