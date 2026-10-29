@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -26,7 +27,23 @@ infrastructure: describe each agent in agents/<name>.yaml, then run
 
 In CI, set FUNKY_API_KEY to a key from https://platform.funky.dev/api-keys
 instead of logging in; it takes precedence over a login.`,
+	Version:      buildVersion(),
 	SilenceUsage: true,
+}
+
+// version is set by release builds (-ldflags "-X ...cmd.version=1.2.3").
+var version = ""
+
+// buildVersion is the release version, or the module version `go install`
+// records, or "dev" for a local build.
+func buildVersion() string {
+	if version != "" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return strings.TrimPrefix(info.Main.Version, "v")
+	}
+	return "dev"
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

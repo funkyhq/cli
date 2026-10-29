@@ -1,7 +1,4 @@
-/*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
-
-*/
+// Command funky manages Funky agents as code.
 package main
 
 import "github.com/funkyhq/cli/cmd"
