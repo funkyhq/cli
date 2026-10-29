@@ -48,9 +48,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
+      # No token: npm trusted publishing, configured on npmjs.com for
+      # @funky-dev/cli, authenticates this workflow through OIDC (id-token
+      # above). No registry-url either, so setup-node doesn't write a
+      # placeholder token into .npmrc.
       - run: node npm/publish.mjs
-        env:
-          # Only needed until npm trusted publishing is set up for
-          # @funky-dev/cli; then delete the NPM_TOKEN secret.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
