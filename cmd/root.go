@@ -1,24 +1,32 @@
 package cmd
 
 import (
+	"errors"
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/funkyhq/cli/internal/auth"
+	"github.com/funkyhq/cli/internal/funky"
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "funky",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "Manage Funky agents as code",
+	Long: `funky manages Funky agent configs from YAML files, like Terraform manages
+infrastructure: describe each agent in agents/<name>.yaml, then run
+` + "`funky apply`" + ` to create or update them in Funky.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+  funky login    log in to Funky Cloud in your browser
+  funky init     create the project structure (an agents/ folder)
+  funky apply    create or update the agent configs in agents/
+
+In CI, set FUNKY_API_KEY to a key from https://platform.funky.dev/api-keys
+instead of logging in; it takes precedence over a login.`,
+	SilenceUsage: true,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -30,14 +38,38 @@ func Execute() {
 	}
 }
 
-func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
+func apiKey() string { return strings.TrimSpace(os.Getenv("FUNKY_API_KEY")) }
 
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cli.yaml)")
+// newClient builds an API client from FUNKY_API_KEY or, failing that, the
+// saved login. target names the project it acts on, for the plan header.
+func newClient() (client *funky.Client, target string, err error) {
+	ep := auth.EndpointsFromEnv()
+	suffix := ""
+	if ep.API != auth.DefaultAPIURL {
+		suffix = " at " + ep.API
+	}
+	if key := apiKey(); key != "" {
+		return funky.NewClient(ep.API, funky.StaticToken(key)), "the FUNKY_API_KEY project" + suffix, nil
+	}
+	session, err := loadSession(ep)
+	if err != nil {
+		return nil, "", err
+	}
+	tokens := &auth.TokenSource{Console: auth.NewConsole(ep.Console), Credential: session.Credential}
+	return funky.NewClient(ep.API, tokens), session.Target() + suffix, nil
+}
 
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+// loadSession is the saved login for ep's console, or a hint to log in.
+func loadSession(ep auth.Endpoints) (*auth.Session, error) {
+	session, err := auth.Load()
+	if errors.Is(err, auth.ErrNotLoggedIn) {
+		return nil, fmt.Errorf("%w: run `funky login` (or set FUNKY_API_KEY)", err)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if session.Console != ep.Console {
+		return nil, fmt.Errorf("logged in to %s, not %s: run `funky login`", session.Console, ep.Console)
+	}
+	return session, nil
 }
