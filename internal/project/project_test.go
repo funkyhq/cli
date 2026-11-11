@@ -69,7 +69,7 @@ func TestLoadAgents(t *testing.T) {
 	if got := spec["metadata"].(map[string]any)[NameKey]; got != "b" {
 		t.Errorf("metadata name = %v; want b", got)
 	}
-	if spec["packages"] == nil || spec["credentials"] == nil || spec["setupCommands"] == nil {
+	if spec["packages"] == nil || spec["credentials"] == nil || spec["setupCommands"] == nil || spec["resources"] == nil {
 		t.Errorf("optional collections should default to empty, got %+v", spec)
 	}
 }
@@ -79,12 +79,13 @@ func TestLoadAgentsErrors(t *testing.T) {
 		files map[string]string
 		want  string
 	}{
-		"missing fields": {map[string]string{"a.yaml": "systemPrompt: hi\n"}, "inference, network"},
-		"unknown field":  {map[string]string{"a.yaml": minimal + "sytemPrompt: typo\n"}, "sytemPrompt"},
-		"bad name":       {map[string]string{"a.yaml": "name: has space\n" + minimal}, "has space"},
-		"empty file":     {map[string]string{"a.yaml": ""}, "empty"},
-		"duplicate name": {map[string]string{"a.yaml": "name: x\n" + minimal, "b.yaml": "name: x\n" + minimal}, "already used"},
-		"reserved key":   {map[string]string{"a.yaml": minimal + "metadata: {funky.dev/name: y}\n"}, NameKey},
+		"missing fields":   {map[string]string{"a.yaml": "systemPrompt: hi\n"}, "inference, network"},
+		"unknown field":    {map[string]string{"a.yaml": minimal + "sytemPrompt: typo\n"}, "sytemPrompt"},
+		"unknown resource": {map[string]string{"a.yaml": minimal + "resources: {cpus: 4}\n"}, "cpus"},
+		"bad name":         {map[string]string{"a.yaml": "name: has space\n" + minimal}, "has space"},
+		"empty file":       {map[string]string{"a.yaml": ""}, "empty"},
+		"duplicate name":   {map[string]string{"a.yaml": "name: x\n" + minimal, "b.yaml": "name: x\n" + minimal}, "already used"},
+		"reserved key":     {map[string]string{"a.yaml": minimal + "metadata: {funky.dev/name: y}\n"}, NameKey},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

@@ -45,12 +45,16 @@ packages:
   pip: [pandas==2.2.0]
 setupCommands: []
 credentials: []
+resources: { cpuCount: 4, memoryMB: 4096 }
 metadata: { team: research }
 ```
 
-`inference`, `systemPrompt` and `network` are required; the rest default to empty. An agent is
-named by its file name, or by a `name:` field. The name is stored in the config's metadata as
-`funky.dev/name`, which is how the next `apply` finds the config to update.
+`inference`, `systemPrompt` and `network` are required; the rest default to empty.
+`resources` sizes the agent's sandbox in vCPUs and MiB of memory; a field left out is the
+default, 2 vCPUs and 1024 MiB.
+
+An agent is named by its file name, or by a `name:` field. The name is stored in the config's
+metadata as `funky.dev/name`, which is how the next `apply` finds the config to update.
 
 `funky apply`:
 

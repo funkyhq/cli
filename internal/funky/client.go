@@ -25,6 +25,7 @@ type AgentConfig struct {
 	Packages      json.RawMessage `json:"packages"`
 	Credentials   json.RawMessage `json:"credentials"`
 	SetupCommands json.RawMessage `json:"setupCommands"`
+	Resources     json.RawMessage `json:"resources"`
 	Metadata      json.RawMessage `json:"metadata,omitempty"`
 }
 

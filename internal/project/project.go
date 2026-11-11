@@ -38,6 +38,7 @@ type Agent struct {
 	Packages      map[string][]string `yaml:"packages"`
 	Credentials   []Credential        `yaml:"credentials"`
 	SetupCommands []string            `yaml:"setupCommands"`
+	Resources     *Resources          `yaml:"resources"`
 	Metadata      map[string]any      `yaml:"metadata"`
 
 	// File is the path the agent was read from.
@@ -54,6 +55,13 @@ type Inference struct {
 type Network struct {
 	Type    string    `yaml:"type" json:"type"`
 	Domains *[]string `yaml:"domains" json:"domains,omitempty"`
+}
+
+// Resources sizes the agent's sandbox. A field left out is the API's
+// default (2 vCPUs, 1024 MiB), so an empty or missing block sends {}.
+type Resources struct {
+	CPUCount *int `yaml:"cpuCount" json:"cpuCount,omitempty"`
+	MemoryMB *int `yaml:"memoryMB" json:"memoryMB,omitempty"`
 }
 
 type Credential struct {
@@ -188,6 +196,10 @@ func (a *Agent) Spec() map[string]any {
 	if setupCommands == nil {
 		setupCommands = []string{}
 	}
+	resources := a.Resources
+	if resources == nil {
+		resources = &Resources{}
+	}
 	return map[string]any{
 		"inference":     a.Inference,
 		"systemPrompt":  *a.SystemPrompt,
@@ -195,6 +207,7 @@ func (a *Agent) Spec() map[string]any {
 		"packages":      packages,
 		"credentials":   credentials,
 		"setupCommands": setupCommands,
+		"resources":     resources,
 		"metadata":      metadata,
 	}
 }
