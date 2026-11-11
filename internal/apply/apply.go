@@ -150,6 +150,7 @@ func remoteSpec(r funky.AgentConfig) (map[string]any, error) {
 		"packages":      r.Packages,
 		"credentials":   r.Credentials,
 		"setupCommands": r.SetupCommands,
+		"resources":     r.Resources,
 		"metadata":      r.Metadata,
 	}
 	out := make(map[string]any, len(raw))

@@ -54,6 +54,13 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		json.NewEncoder(w).Encode(page)
 	case r.Method == "POST" && r.URL.Path == "/v1/agent-configs":
+		for _, field := range []string{"inference", "systemPrompt", "network", "packages", "credentials", "setupCommands", "resources"} {
+			if _, ok := body[field]; !ok {
+				w.WriteHeader(400)
+				fmt.Fprintf(w, `{"type":"error","error":{"type":"invalid_request_error","message":"%s: required"}}`, field)
+				return
+			}
+		}
 		body["id"] = fmt.Sprintf("ac_%d", len(f.configs)+1)
 		body["version"] = 1
 		f.configs = append(f.configs, body)
@@ -163,6 +170,37 @@ func TestApplyIsIdempotentAndUpdatesOnlyChangedFields(t *testing.T) {
 	}
 	if len(api.configs) != 2 || api.configs[1]["version"] != 2 {
 		t.Errorf("configs = %v; want 2 configs, reviewer at v2", api.configs)
+	}
+}
+
+func TestApplySizesTheSandbox(t *testing.T) {
+	api, client, root := setup(t, map[string]string{"researcher.yaml": researcher})
+
+	// No resources block creates with {}, the API's default size.
+	run(t, client, root)
+	if r, ok := api.configs[0]["resources"].(map[string]any); !ok || len(r) != 0 {
+		t.Fatalf("resources = %v; want {}", api.configs[0]["resources"])
+	}
+
+	os.WriteFile(filepath.Join(root, "agents", "researcher.yaml"),
+		[]byte(researcher+"resources: {cpuCount: 4, memoryMB: 4096}\n"), 0o644)
+	changes := run(t, client, root)
+	if got := actions(changes); got != "researcher:update" || strings.Join(changes[0].Fields, ",") != "resources" {
+		t.Fatalf("apply = %s %v; want an update of resources only", got, changes[0].Fields)
+	}
+	if got := fmt.Sprint(api.updates[0]["resources"]); got != "map[cpuCount:4 memoryMB:4096]" {
+		t.Errorf("resources sent = %s", got)
+	}
+	if got := actions(run(t, client, root)); got != "researcher:unchanged" {
+		t.Fatalf("re-apply = %s; want unchanged", got)
+	}
+
+	// Setting only memory leaves cpuCount out, back to its default.
+	os.WriteFile(filepath.Join(root, "agents", "researcher.yaml"),
+		[]byte(researcher+"resources: {memoryMB: 2048}\n"), 0o644)
+	run(t, client, root)
+	if got := fmt.Sprint(api.updates[1]["resources"]); got != "map[memoryMB:2048]" {
+		t.Errorf("resources sent = %s; want memoryMB only", got)
 	}
 }
 
