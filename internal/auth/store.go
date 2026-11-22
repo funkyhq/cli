@@ -108,7 +108,22 @@ func Load() (*Session, error) {
 		}
 		s.Credential = secret
 	}
+	if s.Console == LegacyAPIURL {
+		migrateLegacyConsole(&s, path)
+	}
 	return &s, nil
+}
+
+// migrateLegacyConsole moves a login saved against the retired API host to
+// its successor: the same credential works on both hosts, so the user never
+// has to log in again. Best effort: if the rewrite can't be saved, this run
+// still uses the new host and the next run tries again.
+func migrateLegacyConsole(s *Session, path string) {
+	s.Console = DefaultAPIURL
+	if _, err := Save(s); err != nil {
+		return
+	}
+	_ = keyring.Delete(keyringService, keyringAccount(LegacyAPIURL, path))
 }
 
 // Delete forgets the saved session, wherever its parts are.
