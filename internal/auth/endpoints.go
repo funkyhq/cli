@@ -19,8 +19,11 @@ type Endpoints struct {
 }
 
 const (
-	DefaultAPIURL      = "https://api.funky.dev"
+	DefaultAPIURL      = "https://agents.funky.dev"
 	DefaultPlatformURL = "https://platform.funky.dev"
+	// LegacyAPIURL was DefaultAPIURL. It is being retired, so a login saved
+	// against it moves to DefaultAPIURL when loaded (see Load).
+	LegacyAPIURL = "https://api.funky.dev"
 )
 
 // EndpointsFromEnv reads FUNKY_API_URL, FUNKY_CONSOLE_URL and

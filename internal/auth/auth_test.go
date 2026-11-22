@@ -244,7 +244,7 @@ func TestStoreKeepsTheCredentialInTheKeychain(t *testing.T) {
 	if _, err := Load(); !errors.Is(err, ErrNotLoggedIn) {
 		t.Fatalf("Load before login = %v", err)
 	}
-	s := &Session{Credential: "fkc_secret", Console: "https://api.funky.dev"}
+	s := &Session{Credential: "fkc_secret", Console: "https://agents.funky.dev"}
 	s.User.Email = "alice@example.com"
 	inFile, err := Save(s)
 	if err != nil || inFile {
@@ -306,9 +306,9 @@ func TestStoreKeepsConfigDirsApart(t *testing.T) {
 	keyring.MockInit()
 	main, scratch := t.TempDir(), t.TempDir()
 	t.Setenv("FUNKY_CONFIG_DIR", main)
-	Save(&Session{Credential: "fkc_main", Console: "https://api.funky.dev"})
+	Save(&Session{Credential: "fkc_main", Console: "https://agents.funky.dev"})
 	t.Setenv("FUNKY_CONFIG_DIR", scratch)
-	scratchSession := &Session{Credential: "fkc_scratch", Console: "https://api.funky.dev"}
+	scratchSession := &Session{Credential: "fkc_scratch", Console: "https://agents.funky.dev"}
 	Save(scratchSession)
 	Delete(scratchSession)
 
@@ -333,5 +333,43 @@ func TestLoadReportsAnUnreadableKeychain(t *testing.T) {
 	keyring.MockInit() // an empty keychain: the entry is really gone
 	if _, err := Load(); !errors.Is(err, ErrNotLoggedIn) {
 		t.Fatalf("Load with the entry missing = %v; want ErrNotLoggedIn", err)
+	}
+}
+
+func TestLoadMovesALegacyLoginToTheNewHost(t *testing.T) {
+	keyring.MockInit()
+	dir := t.TempDir()
+	t.Setenv("FUNKY_CONFIG_DIR", dir)
+	path := filepath.Join(dir, "session.json")
+	s := &Session{Credential: "fkc_legacy", Console: LegacyAPIURL}
+	s.User.Email = "alice@example.com"
+	if _, err := Save(s); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := Load()
+	if err != nil || got.Console != DefaultAPIURL || got.Credential != "fkc_legacy" || got.User.Email != "alice@example.com" {
+		t.Fatalf("Load = %+v, %v; want the same login on %s", got, err, DefaultAPIURL)
+	}
+	raw, _ := os.ReadFile(path)
+	if !strings.Contains(string(raw), DefaultAPIURL) || strings.Contains(string(raw), "fkc_legacy") {
+		t.Fatalf("session file after migration = %s", raw)
+	}
+	if _, err := keyring.Get(keyringService, keyringAccount(LegacyAPIURL, path)); !errors.Is(err, keyring.ErrNotFound) {
+		t.Fatalf("legacy keychain entry still present: %v", err)
+	}
+	again, err := Load()
+	if err != nil || again.Credential != "fkc_legacy" || again.Console != DefaultAPIURL {
+		t.Fatalf("second Load = %+v, %v", again, err)
+	}
+}
+
+func TestLoadMovesALegacyFileLogin(t *testing.T) {
+	keyring.MockInitWithError(errors.New("no keychain"))
+	t.Setenv("FUNKY_CONFIG_DIR", t.TempDir())
+	Save(&Session{Credential: "fkc_legacy", Console: LegacyAPIURL})
+	got, err := Load()
+	if err != nil || got.Console != DefaultAPIURL || got.Credential != "fkc_legacy" {
+		t.Fatalf("Load = %+v, %v", got, err)
 	}
 }
